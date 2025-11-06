@@ -1,4 +1,4 @@
-# PEEngine (Plugin Execution Engine)
+# Peregrine-Engine (Plugin Execution Engine)
 
 A lightweight, secure, and flexible Java runtime designed to execute
 user-defined plugins under controlled conditions.
@@ -173,7 +173,7 @@ For a complete test matrix and breakdown, see:
 mvn package
 ```
 This produces:
-./target/peengine-runtime.jar
+./target/Peregrine-Engine-runtime.jar
 
 ---
 ## Quick Start
@@ -195,12 +195,12 @@ Create an `input.json`:
 ```
 ### Run
 ```bash
-cat input.json | java -jar peengine-runtime.jar
+cat input.json | java -jar Peregrine-Engine-runtime.jar
 ```
 
-## Using PEEngine from Java
+## Using Peregrine-Engine from Java
 
-PEEngine can be embedded directly into an existing JVM-based service
+Peregrine-Engine can be embedded directly into an existing JVM-based service
 (REST API, message consumer, job worker, etc.) via the reflectedMain(...)
 entry point.
 
@@ -241,13 +241,13 @@ public class Example {
 - Plugins are still isolated and verified the same way as in CLI mode
 - Input is expected to be pre-validated/sanitized upstream
 - The calling service is responsible for:
-- - Loading .env before using PEEngine
+- - Loading .env before using Peregrine-Engine
 - - Handling plugin result (e.g., storing PDF bytes)
 
 ---
 ## Security Notes
 
-PEEngine verifies plugin integrity (HMAC-SHA256) and can optionally
+Peregrine-Engine verifies plugin integrity (HMAC-SHA256) and can optionally
 encrypt/decrypt data using AES-GCM.
 
 However, **runtime execution is not a sandbox**. Plugins can:
@@ -257,11 +257,11 @@ However, **runtime execution is not a sandbox**. Plugins can:
 - Use reflection
 
 This runtime is designed to be executed **behind a trusted web/API layer**.
-As such, PEEngine **expects all input to be sanitized and validated
+As such, Peregrine-Engine **expects all input to be sanitized and validated
 before it reaches the engine**.  
 The engine assumes all JSON (`meta`, `input`, `settings`) is structurally
 correct and safe to process.
 
 If you intend to execute **untrusted plugins**, or cannot guarantee input
-sanitization upstream, running PEEngine in a **separate process or container**
+sanitization upstream, running Peregrine-Engine in a **separate process or container**
 is strongly recommended.
