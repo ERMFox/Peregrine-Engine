@@ -351,3 +351,97 @@ Add a backend to your application:
 
 * Logging is optional; engine works even with no backend.
 * Returned result is never affected by logging.
+
+## Quick Start
+
+### 1) Build the engine
+
+```bash
+mvn package
+```
+
+Produces:
+
+```
+target/Peregrine-Engine-runtime.jar
+```
+
+### 2) Build the example plugin
+
+```bash
+cd Plugin/JsonToCsvPlugin
+mvn package
+```
+
+Produces a fat jar:
+
+```
+JsonToCsvPlugin.jar
+```
+
+### 3) Sign the plugin
+
+```bash
+openssl dgst -sha256 -mac HMAC -macopt key:$SECRET_KEY -binary JsonToCsvPlugin.jar | base64
+```
+
+Copy output → `.env`:
+
+```
+SECRET_KEY=yourKey
+PLUGIN_SIG_JSON_TO_CSV=<base64>
+```
+
+### 4) Run
+
+```bash
+echo '{"meta": {"pluginName":"json-to-csv","pluginMainClass":"ch.ermfox.JsonToCsvPlugin.JsonToCsvPlugin","fileLocation":"./JsonToCsvPlugin.jar","encryptedInput":false,"encryptOutput":false,"urlSafeOutput":false},"input": {"data":[{"name":"Alice","age":30},{"name":"Bob","age":25}]},"settings":{}}' | java -jar runtime.jar
+```
+
+---
+
+## Plugin Development Template
+
+```java
+public class MyPlugin {
+    public byte[] execute(JsonObject meta, JsonObject input, JsonObject settings) {
+        // logic
+        String output = "hello";
+        return output.getBytes(StandardCharsets.UTF_8);
+    }
+}
+```
+
+---
+
+## Signing Instructions
+
+1. Choose `SECRET_KEY` shared by runtime + signing environment
+2. Compute HMAC of raw plugin JAR
+3. Base64-encode
+4. Place in `.env`
+
+---
+
+## Design Rationale
+
+Peregrine-Engine aims to provide a controlled execution environment:
+
+* Modularity → Extend without redeploy
+* Security → HMAC integrity + optional encryption
+* Safety → Timeout + classloader isolation
+* Flexibility → CLI + embedded
+
+---
+
+## Recruiter Summary
+
+This project demonstrates:
+
+* Secure plugin execution pipeline
+* HMAC + AES-GCM crypto integration
+* Reflection + dynamic loading
+* Timeout + thread control
+* SLF4J integration
+* Maven multi-module architecture
+* Real-world JSON-to-CSV business plugin
