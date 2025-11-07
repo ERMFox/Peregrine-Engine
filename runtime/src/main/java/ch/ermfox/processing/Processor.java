@@ -13,7 +13,38 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 
+/**
+ * Core executor for Peregrine-Engine.
+ *
+ * <p>The {@code Processor} orchestrates the full execution lifecycle of a plugin:
+ * <ol>
+ *   <li>Resolve plugin JAR location</li>
+ *   <li>Verify plugin integrity via HMAC-SHA256</li>
+ *   <li>Optionally decrypt input</li>
+ *   <li>Execute the plugin with timeout and isolation</li>
+ *   <li>Optionally encrypt output</li>
+ *   <li>Encode output as Base64 or Base64-URL</li>
+ * </ol>
+ *
+ * <p>All execution configuration is supplied via three JSON objects:
+ * <ul>
+ *   <li>{@code meta} — plugin metadata and flags</li>
+ *   <li>{@code input} — plugin input data</li>
+ *   <li>{@code settings} — user/implementation-specific configuration</li>
+ * </ul>
+ *
+ * <p>The final return value of {@link #process()} is always a string, representing
+ * either a successful result (encoded payload) or an error string describing the failure.
+ *
+ * <p>This class does not perform sandboxing. Plugins executed via
+ * {@link PluginProcessor} have full JVM access unless isolated externally.
+ *
+ * @see PluginProcessor
+ * @see PluginResult
+ */
 public class Processor {
+
+    private static final long DEFAULT_TIMEOUT_MS = 5000L;
 
     private final JsonObject metaJson;
     private final JsonObject inputJson;
@@ -24,8 +55,8 @@ public class Processor {
     private AESFunctions aesFunctions = new AESFunctions();
     private Base64Functions base64Functions = new Base64Functions();
 
-    private final byte[] secretKey = AESFunctions.deriveKey(EnvProvider.get("SECRET_KEY")).getEncoded();
-
+    private final byte[] secretKey =
+            AESFunctions.deriveKey(EnvProvider.get("SECRET_KEY")).getEncoded();
 
     public Processor(JsonObject metaJson, JsonObject inputJson, JsonObject settingsJson) {
         this.metaJson = metaJson;
@@ -33,6 +64,9 @@ public class Processor {
         this.settingsJson = settingsJson;
     }
 
+    /**
+     * Executes the full plugin pipeline.
+     */
     public String process() {
 
         Path pluginPath = provider.resolve(metaJson.get("fileLocation").getAsString());
@@ -40,18 +74,18 @@ public class Processor {
             return "plugin doesn't exist or no permissions to access file";
         }
 
-        // 2) validate plugin signature
         String pluginName = metaJson.get("pluginName").getAsString();
         if (!verifyPlugin(pluginPath, pluginName)) {
             return "plugin verification failed";
         }
 
-        // 3) decrypt input if needed
         decryptInputIfNeeded();
 
-        // 4) execute plugin
+        // ✅ NEW — resolve timeout
+        long timeoutMs = resolveTimeoutMs();
+
         PluginProcessor pluginProcessor = new PluginProcessor(metaJson, inputJson, settingsJson);
-        PluginResult result = pluginProcessor.executePlugin(pluginPath, 5000); // timeout 5s
+        PluginResult result = pluginProcessor.executePlugin(pluginPath, timeoutMs);
 
         if (!result.ok) {
             if (result.timedOut) {
@@ -62,20 +96,38 @@ public class Processor {
 
         byte[] payload = result.payload;
 
-        // 5) encrypt output if needed
         if (metaJson.has("encryptOutput") && metaJson.get("encryptOutput").getAsBoolean()) {
             payload = aesFunctions.encryptString(new String(payload, StandardCharsets.UTF_8), secretKey);
         }
 
-        // 6) base64 encode (or URL-safe)
         boolean urlSafe = metaJson.has("urlSafeOutput") && metaJson.get("urlSafeOutput").getAsBoolean();
-        String encoded = urlSafe
+        return urlSafe
                 ? base64Functions.encodeURLSafe(payload)
                 : base64Functions.encode(payload);
-
-        return encoded;
     }
 
+    /**
+     * Timeout resolution hierarchy:
+     * 1) settings.timeoutMs
+     * 2) env var PLUGIN_TIMEOUT_MS
+     * 3) DEFAULT_TIMEOUT_MS
+     */
+    private long resolveTimeoutMs() {
+        try {
+            if (settingsJson.has("timeoutMs")) {
+                return settingsJson.get("timeoutMs").getAsLong();
+            }
+        } catch (Exception ignored) {}
+
+        String envTimeout = EnvProvider.get("PLUGIN_TIMEOUT_MS");
+        if (envTimeout != null) {
+            try {
+                return Long.parseLong(envTimeout);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        return DEFAULT_TIMEOUT_MS;
+    }
 
     private boolean verifyPlugin(Path pluginPath, String pluginName) {
         try {
@@ -98,7 +150,4 @@ public class Processor {
         String plaintext = aesFunctions.decryptString(encryptedBytes, secretKey);
         inputJson.addProperty("data", plaintext);
     }
-
-
-
 }

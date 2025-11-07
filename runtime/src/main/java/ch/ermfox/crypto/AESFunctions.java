@@ -10,13 +10,57 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 
+/**
+ * AES-GCM encryption utilities used by Peregrine-Engine for optional payload
+ * confidentiality.
+ *
+ * <p>This class provides:
+ * <ul>
+ *   <li>Authenticated encryption using AES/GCM/NoPadding</li>
+ *   <li>IV generation and prepending for reconstruction during decryption</li>
+ *   <li>SHA-256–based key derivation from a UTF-8 passphrase</li>
+ * </ul>
+ *
+ * <h2>Security Notes</h2>
+ * <ul>
+ *   <li>This implementation uses AES-256-GCM when supplied with a 32-byte key.</li>
+ *   <li>The IV (96 bits) is randomly generated per encryption as recommended for GCM.</li>
+ *   <li>The returned encrypted payload is {@code IV || ciphertext}.</li>
+ *   <li>No additional authenticated data (AAD) is currently used.</li>
+ *   <li>
+ *     {@code deriveKey()} performs a simple SHA-256 hash; for production use,
+ *     a real KDF (e.g., PBKDF2, HKDF, Argon2) is recommended for stronger
+ *     brute-force resistance.
+ *   </li>
+ * </ul>
+ *
+ * <p>These utilities do not provide transport encoding; callers typically wrap
+ * encrypted output using Base64 for interchange (see Base64Functions).
+ */
 public class AESFunctions {
 
     private static final String AES = "AES";
     private static final String AES_GCM = "AES/GCM/NoPadding";
-    private static final int GCM_IV_LENGTH = 12;     // 96 bits
-    private static final int GCM_TAG_LENGTH = 128;   // 128 bits
 
+    /** GCM IV length in bytes (96 bits, NIST recommended). */
+    private static final int GCM_IV_LENGTH = 12;
+
+    /** GCM authentication tag length in bits. */
+    private static final int GCM_TAG_LENGTH = 128;
+
+    /**
+     * Encrypts a UTF-8 string using AES-GCM.
+     *
+     * <p>The output format is:
+     * <pre>
+     *   IV (12 bytes) || ciphertext+tag
+     * </pre>
+     *
+     * @param plaintext UTF-8 string to encrypt
+     * @param key AES key (16/24/32 bytes recommended; ideally 32 bytes)
+     * @return byte[] containing IV prepended to ciphertext
+     * @throws RuntimeException if encryption fails
+     */
     public byte[] encryptString(String plaintext, byte[] key) {
         try {
             // generate IV
@@ -43,6 +87,19 @@ public class AESFunctions {
         }
     }
 
+    /**
+     * Decrypts an AES-GCM payload previously produced by {@link #encryptString}.
+     *
+     * <p>The input must contain:
+     * <pre>
+     *   IV (12 bytes) || ciphertext+tag
+     * </pre>
+     *
+     * @param input byte[] containing IV + ciphertext
+     * @param key AES key used during encryption
+     * @return decrypted plaintext string (UTF-8)
+     * @throws RuntimeException if decryption fails
+     */
     public String decryptString(byte[] input, byte[] key) {
         try {
             // split IV + ciphertext
@@ -67,6 +124,17 @@ public class AESFunctions {
         }
     }
 
+    /**
+     * Derives a static AES key from a UTF-8 passphrase using SHA-256.
+     *
+     * <p>This produces a deterministic 256-bit key. While sufficient for many
+     * internal workflows, a hardened KDF (e.g., PBKDF2/HKDF/Argon2) is
+     * recommended when deriving keys from user input or weak secrets.
+     *
+     * @param passphrase UTF-8 text used as key source
+     * @return {@link SecretKey} (AES)
+     * @throws RuntimeException if hashing fails
+     */
     public static SecretKey deriveKey(String passphrase) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -76,6 +144,4 @@ public class AESFunctions {
             throw new RuntimeException("Key generation failed", e);
         }
     }
-
-
 }
