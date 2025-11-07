@@ -1,0 +1,44 @@
+name: Release Artifacts
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '23'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+
+      - name: Build + Test
+        run: mvn -B verify
+
+      - name: Package
+        run: mvn -B package
+
+      - name: Create Release Artifacts
+        run: |
+          mkdir artifacts
+          cp runtime/target/*runtime*.jar artifacts/ || true
+          cp Plugin/JsonToCsvPlugin/target/*JsonToCsvPlugin*.jar artifacts/ || true
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*
