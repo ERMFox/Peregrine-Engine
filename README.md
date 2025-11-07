@@ -432,16 +432,3 @@ Peregrine-Engine aims to provide a controlled execution environment:
 * Safety → Timeout + classloader isolation
 * Flexibility → CLI + embedded
 
----
-
-## Recruiter Summary
-
-This project demonstrates:
-
-* Secure plugin execution pipeline
-* HMAC + AES-GCM crypto integration
-* Reflection + dynamic loading
-* Timeout + thread control
-* SLF4J integration
-* Maven multi-module architecture
-* Real-world JSON-to-CSV business plugin
