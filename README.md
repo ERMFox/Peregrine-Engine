@@ -197,6 +197,73 @@ Custom providers may be implemented via the `FileDataProvider` interface.
 
 ---
 
+## Example Plugin: JSON → CSV
+
+A reference plugin `JsonToCsvPlugin` is included to demonstrate business-oriented plugin development.
+
+### Purpose
+
+Converts `input.data` (an array of JSON objects) into CSV for use in Excel, Google Sheets, etc.
+
+**Input example:**
+
+```json
+{
+  "data": [
+    { "name": "Alice", "age": 30, "city": "London" },
+    { "name": "Bob",   "age": 25, "city": "Paris" }
+  ]
+}
+```
+
+**CSV output (Base64-encoded):**
+
+```
+bmFtZSxhZ2UsY2l0eQpBbGljZSwzMCxMb25kb24KQm9iLDI1LFBhcmlzCg==
+```
+
+Decoded:
+
+```
+name,age,city
+Alice,30,London
+Bob,25,Paris
+```
+
+### Plugin Contract
+
+```
+public byte[] execute(JsonObject meta,
+                      JsonObject input,
+                      JsonObject settings);
+```
+
+### Packaging
+
+The plugin is distributed as a **fat JAR** (including its dependencies) to ensure isolated loading.
+
+---
+
+## Working Version
+
+✅ A functional integration between:
+
+* The Peregrine-Engine runtime (`runtime.jar`), and
+* The `JsonToCsvPlugin` plugin JAR
+
+…has been validated.
+
+The execution pipeline successfully performs:
+
+1. Loading + signature verification of plugin JAR
+2. Execution via isolated classloader
+3. Timeout enforcement
+4. Output encoding
+
+This demonstrates working modular execution and plugin integrity controls.
+
+---
+
 ## Build
 
 Requirements:
@@ -241,12 +308,6 @@ target/Peregrine-Engine-runtime.jar
 
 ---
 
-## License
-
-Apache‑2.0
-
----
-
 ## Logging
 
 Peregrine‑Engine uses **SLF4J** for logging. No backend is bundled.
@@ -264,8 +325,7 @@ Only orchestration layers produce logs:
 * `Processor` — pipeline + lifecycle events
 * `PluginProcessor` — plugin load, execution, timeout
 
-Crypto + encoding utilities intentionally do **not** log
-(to avoid accidental leakage of sensitive data or polluting output).
+Crypto + encoding utilities intentionally do **not** log.
 
 ### Configure Logging
 
@@ -279,23 +339,6 @@ Add a backend to your application:
 </dependency>
 ```
 
-Then provide a `logback.xml` or equivalent configuration.
-
-Example minimal Logback console config:
-
-```xml
-<configuration>
-  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
-      <pattern>%d %-5level [%thread] %logger - %msg%n</pattern>
-    </encoder>
-  </appender>
-  <root level="INFO">
-    <appender-ref ref="STDOUT" />
-  </root>
-</configuration>
-```
-
 ### Log Levels
 
 * `INFO` — high‑level lifecycle
@@ -307,15 +350,4 @@ Example minimal Logback console config:
 ### Notes
 
 * Logging is optional; engine works even with no backend.
-* Integrators control log routing destinations.
-* Silence is guaranteed inside plugin execution (no injected logs).
 * Returned result is never affected by logging.
-
----
-
-## Contributing
-
-Issues + PRs welcome.
-
-Fork → branch → PR.
-Tests expected for contributed logic.
