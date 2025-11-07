@@ -247,6 +247,72 @@ Apache‑2.0
 
 ---
 
+## Logging
+
+Peregrine‑Engine uses **SLF4J** for logging. No backend is bundled.
+This allows integrators to choose their preferred logging provider:
+
+* Logback
+* Log4j2
+* java.util.logging bridge
+* File‑based or network logging targets
+
+### Logging Scope
+
+Only orchestration layers produce logs:
+
+* `Processor` — pipeline + lifecycle events
+* `PluginProcessor` — plugin load, execution, timeout
+
+Crypto + encoding utilities intentionally do **not** log
+(to avoid accidental leakage of sensitive data or polluting output).
+
+### Configure Logging
+
+Add a backend to your application:
+
+```xml
+<dependency>
+  <groupId>ch.qos.logback</groupId>
+  <artifactId>logback-classic</artifactId>
+  <version>1.5.6</version>
+</dependency>
+```
+
+Then provide a `logback.xml` or equivalent configuration.
+
+Example minimal Logback console config:
+
+```xml
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d %-5level [%thread] %logger - %msg%n</pattern>
+    </encoder>
+  </appender>
+  <root level="INFO">
+    <appender-ref ref="STDOUT" />
+  </root>
+</configuration>
+```
+
+### Log Levels
+
+* `INFO` — high‑level lifecycle
+* `DEBUG` — component steps
+* `TRACE` — very fine execution details
+* `WARN` — invalid plugin behavior
+* `ERROR` — plugin crashes, unexpected failures
+
+### Notes
+
+* Logging is optional; engine works even with no backend.
+* Integrators control log routing destinations.
+* Silence is guaranteed inside plugin execution (no injected logs).
+* Returned result is never affected by logging.
+
+---
+
 ## Contributing
 
 Issues + PRs welcome.
